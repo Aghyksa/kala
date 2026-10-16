@@ -231,7 +231,7 @@ impl KalaMcp {
             }
             let doc = build_export(s, project.id, month, Lang::from_code(&s.settings()?.language))?;
             if format == "csv" { write_csv(&doc, &path)? } else { write_xlsx(&doc, &path)? }
-            Ok(json!({ "path": args.path, "rows": doc.rows.len(), "totalHours": doc.total_hours, "totalPrice": doc.total_price }))
+            Ok(json!({ "path": args.path, "rows": doc.rows.len(), "totalHours": doc.total_hours }))
         }))
     }
 
@@ -352,6 +352,22 @@ mod tests {
         let ok = dir.path().join("a.csv");
         assert!(!call(&ok, Some("csv")).contains("error"));
         assert!(call(&ok, Some("csv")).contains("error"));
+    }
+
+    #[test]
+    fn export_excludes_price_metadata() {
+        let (dir, m) = mcp();
+        m.log_time(Parameters(LogTimeArgs { text: "2026-10-16 acme 13-15 fix role".into() }));
+        let out = m.export(Parameters(ExportArgs {
+            project: "acme".into(),
+            month: "2026-10".into(),
+            path: dir.path().join("timesheet.csv").display().to_string(),
+            format: Some("csv".into()),
+        }));
+        let result: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(result["rows"], 1);
+        assert_eq!(result["totalHours"], 2.0);
+        assert!(result.get("totalPrice").is_none(), "{out}");
     }
 
     #[test]

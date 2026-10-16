@@ -5,7 +5,8 @@
   "windows": [
     "popover",
     "quick",
-    "settings"
+    "settings",
+    "workspace"
   ],
   "permissions": [
     "core:default",

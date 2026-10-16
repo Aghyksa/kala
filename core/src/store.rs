@@ -49,6 +49,8 @@ pub struct Settings {
     pub language: String,
     pub last_reminder_date: Option<NaiveDate>,
     pub onboarded: bool,
+    /// "system", "light" or "dark"; anything else follows the system.
+    pub theme: String,
 }
 
 impl Default for Settings {
@@ -63,6 +65,7 @@ impl Default for Settings {
             language: "en".into(),
             last_reminder_date: None,
             onboarded: false,
+            theme: "system".into(),
         }
     }
 }
@@ -90,7 +93,7 @@ pub struct ProjectSummary {
 }
 
 pub struct Store {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 const TS: &str = "%Y-%m-%dT%H:%M";
@@ -154,7 +157,7 @@ fn project_row(r: &rusqlite::Row) -> rusqlite::Result<Project> {
     })
 }
 
-fn entry_row(r: &rusqlite::Row) -> rusqlite::Result<Entry> {
+pub(crate) fn entry_row(r: &rusqlite::Row) -> rusqlite::Result<Entry> {
     let end: Option<String> = r.get(3)?;
     Ok(Entry {
         id: r.get(0)?,
@@ -186,6 +189,10 @@ impl Store {
         if version < 1 {
             tx.execute_batch(SCHEMA)?;
             tx.pragma_update(None, "user_version", 1)?;
+        }
+        if version < 2 {
+            tx.execute_batch(crate::workspace::SCHEMA)?;
+            tx.pragma_update(None, "user_version", 2)?;
         }
         tx.commit()?;
         Ok(Store { conn })
@@ -470,6 +477,30 @@ pub(crate) mod tests {
 
     pub fn id_of(s: &Store, name: &str) -> i64 {
         s.projects(true).unwrap().into_iter().find(|p| p.name == name).unwrap().id
+    }
+
+    #[test]
+    fn v1_migration_preserves_projects_entries_settings_and_timer() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("kala.db");
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        conn.execute_batch("PRAGMA user_version=1;
+            INSERT INTO projects(id,name) VALUES(7,'Legacy');
+            INSERT INTO entries(id,project_id,start_at,end_at,description) VALUES
+            (12,7,'2026-10-16T09:00','2026-10-16T10:00','finished'),
+            (13,7,'2026-10-16T10:00',NULL,'running');
+            INSERT INTO settings(id,json) VALUES(1,'{\"userName\":\"Legacy user\"}');").unwrap();
+        drop(conn);
+        let s = Store::open(&path).unwrap();
+        assert_eq!(s.conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0)).unwrap(), 2);
+        assert_eq!(s.projects(true).unwrap()[0].id, 7);
+        assert_eq!(s.entry(12).unwrap().description, "finished");
+        assert_eq!(s.running().unwrap().unwrap().id, 13);
+        assert_eq!(s.settings().unwrap().user_name, "Legacy user");
+        assert_eq!(s.settings().unwrap().theme, "system");
+        drop(s);
+        assert_eq!(Store::open(&path).unwrap().entry(12).unwrap().project_id, 7);
     }
 
     fn logged(o: LogOutcome) -> (Entry, bool) {

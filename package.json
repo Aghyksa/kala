@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "tauri": "tauri"
+    "tauri": "PATH=\"$PATH:$HOME/.cargo/bin:/opt/homebrew/opt/rustup/bin:/usr/local/opt/rustup/bin\" tauri",
+    "test:dates": "node src/lib/dates.check.mjs"
   },
   "license": "MIT",
   "dependencies": {

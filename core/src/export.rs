@@ -18,7 +18,6 @@ pub struct ExportRow {
     pub end: NaiveTime,
     pub description: String,
     pub hours: f64,
-    pub price: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -27,12 +26,9 @@ pub struct ExportDoc {
     pub title: String,
     pub period: String,
     pub user_name: String,
-    pub currency: String,
-    pub show_price: bool,
     pub lang: Lang,
     pub rows: Vec<ExportRow>,
     pub total_hours: f64,
-    pub total_price: Option<f64>,
 }
 
 pub fn build_export(store: &Store, project_id: i64, month: Month, lang: Lang) -> Result<ExportDoc, KalaError> {
@@ -41,7 +37,6 @@ pub fn build_export(store: &Store, project_id: i64, month: Month, lang: Lang) ->
         .into_iter()
         .find(|p| p.id == project_id)
         .ok_or(KalaError::InvalidEntry { reason: "project_not_found".into() })?;
-    let show_price = project.hourly_rate > 0.0;
     let rows: Vec<ExportRow> = store
         .entries_between(month.first_day(), month.last_day(), Some(project_id))?
         .into_iter()
@@ -56,24 +51,19 @@ pub fn build_export(store: &Store, project_id: i64, month: Month, lang: Lang) ->
                 end: end.time(),
                 description: e.description,
                 hours,
-                price: show_price.then(|| hours * project.hourly_rate),
             }
         })
         .collect();
     // Totals from exact minutes so they match Store::summary; rounding is display-only.
     let total_minutes: f64 = rows.iter().map(|r| r.hours * 60.0).sum::<f64>().round();
     let total_hours = round2(total_minutes / 60.0);
-    let total_price = show_price.then(|| round2(total_minutes / 60.0 * project.hourly_rate));
     Ok(ExportDoc {
         title: format!("{} {}", label(lang, "timesheet"), project.name),
         period: format!("{} {}", month_name(lang, month.month), month.year),
         user_name: store.settings()?.user_name,
-        currency: project.currency,
-        show_price,
         lang,
         rows,
         total_hours,
-        total_price,
     })
 }
 
@@ -82,26 +72,11 @@ fn round2(x: f64) -> f64 {
     (x * 100.0).round() / 100.0 + 0.0
 }
 
-/// ISO 4217 currencies without minor units show no decimals; everything else keeps cents.
-pub fn price_format(currency: &str) -> &'static str {
-    const ZERO_DECIMAL: [&str; 9] = ["IDR", "JPY", "KRW", "VND", "CLP", "ISK", "PYG", "UGX", "XAF"];
-    if ZERO_DECIMAL.contains(&currency.to_uppercase().as_str()) { "#,##0" } else { "#,##0.00" }
-}
-
-fn money(x: f64) -> String {
-    let r = round2(x);
-    if r.fract() == 0.0 { format!("{}", r as i64) } else { format!("{r:.2}") }
-}
-
 fn headers(doc: &ExportDoc) -> Vec<String> {
-    let mut h: Vec<String> = ["col_no", "col_date", "col_start", "col_end", "col_desc", "col_hours"]
+    ["col_no", "col_date", "col_start", "col_end", "col_desc", "col_hours"]
         .iter()
         .map(|k| label(doc.lang, k).to_string())
-        .collect();
-    if doc.show_price {
-        h.push(format!("{} ({})", label(doc.lang, "col_price"), doc.currency));
-    }
-    h
+        .collect()
 }
 
 fn csv_field(s: &str) -> String {
@@ -111,7 +86,7 @@ fn csv_field(s: &str) -> String {
 pub fn write_csv(doc: &ExportDoc, path: &Path) -> Result<(), KalaError> {
     let mut out = headers(doc).join(",") + "\n";
     for r in &doc.rows {
-        let mut cols = vec![
+        let cols = vec![
             r.no.to_string(),
             r.date.format("%d/%m/%Y").to_string(),
             r.start.format("%H:%M").to_string(),
@@ -119,13 +94,9 @@ pub fn write_csv(doc: &ExportDoc, path: &Path) -> Result<(), KalaError> {
             csv_field(&r.description),
             format!("{:.2}", r.hours),
         ];
-        cols.extend(r.price.map(money));
         out += &(cols.join(",") + "\n");
     }
     out += &format!(",,,,{},{:.2}", label(doc.lang, "total"), doc.total_hours);
-    if let Some(p) = doc.total_price {
-        out += &format!(",{}", money(p));
-    }
     out += "\n";
     Ok(std::fs::write(path, out)?)
 }
@@ -143,7 +114,6 @@ fn xlsx(doc: &ExportDoc, path: &Path) -> Result<(), XlsxError> {
     let date_f = Format::new().set_num_format("dd/mm/yyyy");
     let time_f = Format::new().set_num_format("hh:mm");
     let hours_f = Format::new().set_num_format("0.00");
-    let price_f = Format::new().set_num_format(price_format(&doc.currency));
     let wrap = Format::new().set_text_wrap();
 
     ws.write_with_format(0, 0, &doc.title, &Format::new().set_bold().set_font_size(14))?;
@@ -163,9 +133,6 @@ fn xlsx(doc: &ExportDoc, path: &Path) -> Result<(), XlsxError> {
         ws.write_with_format(row, 3, &r.end, &time_f)?;
         ws.write_with_format(row, 4, &r.description, &wrap)?;
         ws.write_with_format(row, 5, r.hours, &hours_f)?;
-        if let Some(p) = r.price {
-            ws.write_with_format(row, 6, p, &price_f)?;
-        }
     }
     let total_row = first + doc.rows.len() as u32;
     let sum = |col: char, value: f64| {
@@ -174,13 +141,9 @@ fn xlsx(doc: &ExportDoc, path: &Path) -> Result<(), XlsxError> {
     };
     ws.write_with_format(total_row, 4, label(doc.lang, "total"), &bold)?;
     ws.write_formula_with_format(total_row, 5, sum('F', doc.total_hours), &hours_f.clone().set_bold())?;
-    if let Some(p) = doc.total_price {
-        ws.write_formula_with_format(total_row, 6, sum('G', p), &price_f.clone().set_bold())?;
-    }
     ws.set_column_width(0, 5)?;
     ws.set_column_width(1, 12)?;
     ws.set_column_width(4, 50)?;
-    ws.set_column_width(6, 14)?;
     wb.save(path)
 }
 
@@ -212,16 +175,16 @@ mod tests {
     }
 
     #[test]
-    fn rows_totals_and_price() {
+    fn rows_and_hour_totals() {
         let (_d, s) = temp_store();
         set_rate(&s, "Acme", 100000.0);
         s.log_text("16/10 acme 13-15 fix role", now()).unwrap();
         s.log_text("15/10 acme 9-10 review", now()).unwrap();
         let doc = build_export(&s, id_of(&s, "Acme"), OCT, Lang::Id).unwrap();
         assert_eq!((doc.title.as_str(), doc.period.as_str()), ("Timesheet Acme", "Oktober 2026"));
-        let got: Vec<_> = doc.rows.iter().map(|r| (r.no, r.date, r.hours, r.price)).collect();
-        assert_eq!(got, [(1, d(2026, 10, 15), 1.0, Some(100000.0)), (2, d(2026, 10, 16), 2.0, Some(200000.0))]);
-        assert_eq!((doc.total_hours, doc.total_price, doc.show_price), (3.0, Some(300000.0), true));
+        let got: Vec<_> = doc.rows.iter().map(|r| (r.no, r.date, r.hours)).collect();
+        assert_eq!(got, [(1, d(2026, 10, 15), 1.0), (2, d(2026, 10, 16), 2.0)]);
+        assert_eq!(doc.total_hours, 3.0);
     }
 
     #[test]
@@ -234,8 +197,8 @@ mod tests {
         let acme = id_of(&s, "Acme");
         let doc = build_export(&s, acme, OCT, Lang::En).unwrap();
         let sum = &s.summary(OCT, Some(acme)).unwrap()[0];
-        assert_eq!((doc.total_hours, doc.total_price), (1.0, Some(100000.0)));
-        assert_eq!((sum.minutes as f64 / 60.0, sum.amount), (doc.total_hours, doc.total_price.unwrap()));
+        assert_eq!(doc.total_hours, 1.0);
+        assert_eq!(sum.minutes as f64 / 60.0, doc.total_hours);
     }
 
     #[test]
@@ -250,7 +213,7 @@ mod tests {
         let doc = build_export(&s, acme, OCT, Lang::En).unwrap();
         let got: Vec<_> = doc.rows.iter().map(|r| (r.date, r.description.as_str(), r.hours)).collect();
         assert_eq!(got, [(d(2026, 10, 31), "a", 1.0), (d(2026, 10, 31), "midnight", 2.0)]);
-        assert_eq!((doc.total_hours, doc.show_price, doc.total_price), (3.0, false, None));
+        assert_eq!(doc.total_hours, 3.0);
     }
 
     #[test]
@@ -280,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn csv_includes_price_column_when_rate_set() {
+    fn csv_excludes_price_even_when_rate_set() {
         let (dir, s) = temp_store();
         set_rate(&s, "Acme", 150000.0);
         s.log_text("16/10 acme 13-14.30 a", now()).unwrap();
@@ -289,16 +252,8 @@ mod tests {
         write_csv(&doc, &c).unwrap();
         assert_eq!(
             std::fs::read_to_string(&c).unwrap(),
-            "No,Date,Start,End,Description,Hours,Price (IDR)\n1,16/10/2026,13:00,14:30,a,1.50,225000\n,,,,Total,1.50,225000\n"
+            "No,Date,Start,End,Description,Hours\n1,16/10/2026,13:00,14:30,a,1.50\n,,,,Total,1.50\n"
         );
-    }
-
-    #[test]
-    fn price_format_keeps_cents_except_zero_decimal_currencies() {
-        assert_eq!(price_format("IDR"), "#,##0");
-        assert_eq!(price_format("jpy"), "#,##0");
-        assert_eq!(price_format("USD"), "#,##0.00");
-        assert_eq!(price_format("SGD"), "#,##0.00");
     }
 
     #[test]

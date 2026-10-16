@@ -1,12 +1,14 @@
 <script lang="ts">
   import { api, hhmm, minutesBetween, PALETTE, type KalaError, type LogOutcome, type Planned } from "./api";
   import { dayLabel, duration, errorText, t } from "./i18n.svelte";
+  import Icon from "./Icon.svelte";
 
   let {
     onDone,
     onCancel,
     autofocus = false,
-  }: { onDone: (o: LogOutcome) => void; onCancel: () => void; autofocus?: boolean } = $props();
+    exampleProject = "project",
+  }: { onDone: (o: LogOutcome) => void; onCancel: () => void; autofocus?: boolean; exampleProject?: string } = $props();
 
   let text = $state("");
   let preview = $state<Planned | null>(null);
@@ -103,6 +105,8 @@
 </script>
 
 <div class="quick">
+  <div class="entry-field">
+  <span class="input-icon"><Icon name="plus" size={18} /></span>
   <!-- svelte-ignore a11y_autofocus -->
   <input
     bind:this={input}
@@ -110,11 +114,13 @@
     oninput={refresh}
     {onkeydown}
     {autofocus}
-    placeholder={t("placeholder")}
+    placeholder={t("placeholder", { project: exampleProject })}
     spellcheck="false"
     autocomplete="off"
-    aria-label={t("placeholder")}
+    aria-label={t("quickEntry")}
   />
+  <button class="submit" onclick={submit} disabled={busy || !text.trim()} aria-label={t("save")} title={t("save")}><Icon name="right" size={18} /></button>
+  </div>
   {#if preview}
     <div class="chips" aria-live="polite">
       <span class="chip"><span class="dot" style:background={preview.project.color}></span>{preview.project.name}</span>
@@ -122,7 +128,7 @@
         <span class="chip">{dayLabel(preview.start.slice(0, 10))}</span>
         <span class="chip">{hhmm(preview.start)}–{hhmm(preview.end)} · {duration(minutesBetween(preview.start, preview.end))}</span>
       {:else}
-        <span class="chip">▶ {t("startsTimer")}</span>
+        <span class="chip"><Icon name="play" size={12} />{t("startsTimer")}</span>
       {/if}
       {#if preview.description}<span class="chip desc">{preview.description}</span>{/if}
       {#if preview.kind === "log" && preview.overlaps}<span class="warn">⚠ {t("overlap")}</span>{/if}
@@ -142,27 +148,20 @@
 </div>
 
 <style>
-  .quick { display: flex; flex-direction: column; gap: 6px; }
-  input {
-    width: 100%;
-    box-sizing: border-box;
-    font: inherit;
-    font-size: 15px;
-    padding: 8px 10px;
-    border-radius: 7px;
-    border: 1px solid var(--separator);
-    background: var(--field);
-    color: var(--label);
-    outline: none;
-  }
-  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .quick { display: flex; flex-direction: column; gap: 8px; }
+  .entry-field { position: relative; }
+  .entry-field input { width: 100%; font-size: 13px; height: 44px; padding: 10px 36px; border-radius: 10px; background: var(--surface); }
+  .input-icon { position: absolute; left: 12px; top: 13px; color: var(--accent-text); pointer-events: none; }
+  .submit { position: absolute; right: 6px; top: 7px; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 6px; background: var(--accent-soft); color: var(--accent-text); }
+  .submit:hover { background: var(--fill); }
+  .submit:disabled { opacity: .35; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 2px 8px;
-    border-radius: 5px;
+    padding: 4px 8px;
+    border-radius: 6px;
     background: var(--fill);
     font-size: 12px;
     color: var(--label);

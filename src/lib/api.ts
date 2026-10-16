@@ -41,6 +41,7 @@ export type Settings = {
   language: string;
   lastReminderDate: string | null;
   onboarded: boolean;
+  theme: "system" | "light" | "dark";
 };
 
 export type DayView = { date: string; entries: Entry[]; totalMinutes: number };

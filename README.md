@@ -1,6 +1,6 @@
 # Kala
 
-A fast menu bar timesheet for macOS. Type one line, get a timesheet entry. Export a month to Excel in one click. Ask your AI how many hours you worked, through MCP.
+A local time tracking workspace for macOS, with fast menu bar capture. Track work, explore your dashboard, and build reports with project-specific fields. Ask your AI how many hours you worked through MCP.
 
 Everything stays on your Mac: one SQLite file, no account, no server, no telemetry.
 
@@ -16,7 +16,18 @@ Everything stays on your Mac: one SQLite file, no account, no server, no telemet
 xattr -dr com.apple.quarantine /Applications/Kala.app
 ```
 
-On first launch Kala opens Settings and asks you to record a global shortcut.
+Kala opens its desktop workspace on launch. Open **Settings** to configure projects and record a global shortcut. Launch at login runs quietly in the menu bar.
+
+## Workspace
+
+Click **Open Kala** in the menu bar popover to open the desktop app. Closing the window leaves Kala running in the menu bar.
+
+- **Dashboard** shows total time, project breakdowns, daily activity, and recent entries for the selected period.
+- **Timesheet** lets you search, filter, edit entries, and choose columns. Entries are paginated; totals cover every matching entry.
+- **Projects** lets you create, archive, and restore projects, configure aliases and rounding, and manage custom fields. Each project can have text, number, date, select, checkbox, and URL fields, with separate defaults for table and export visibility. Archiving a field preserves existing values.
+- **Reports** adds grouping by project, day, or custom field, exact field-value filters, saved views, and selected-column CSV/Excel exports. Exports include every matching entry and hours, without prices.
+
+Project settings are also available in **Settings → Projects**. Manual entries use explicit start and end dates; existing multi-day timer entries keep their original timestamps when their description or custom fields change.
 
 ## Quick entry
 
@@ -48,7 +59,7 @@ Click a project in the popover, or press `⌘1`–`⌘9` while it is open. Start
 
 ## Export
 
-Popover → **Export** → pick project and month. Kala writes `Kala-<Project>-YYYY-MM.xlsx` (or `.csv`) to Downloads: title, period, one row per entry, hours as decimals, price from the project's hourly rate, totals.
+Popover → **Export** → pick project and month. Kala writes `Kala-<Project>-YYYY-MM.xlsx` (or `.csv`) to Downloads: title, period, one row per entry, hours as decimals, and total hours.
 
 ## MCP
 
@@ -71,10 +82,22 @@ npm install
 npm run tauri dev
 ```
 
+While `npm run tauri dev` is running, frontend edits reload and Rust edits rebuild the app. Quit an installed copy before starting development; Kala uses a single application instance.
+
+To build a standalone app, stop development and run:
+
+```bash
+npm run tauri build -- --bundles app
+```
+
+The app is written to `target.noindex/release/bundle/macos/Kala.app`. Quit Kala, then replace the copy in Applications to update the installed app. Source edits do not update an installed copy automatically.
+
 ```bash
 cargo test --workspace
 npm run check
 ```
+
+The npm Tauri script also searches standard rustup installation paths. Direct Cargo commands require Cargo in your shell PATH.
 
 `KALA_DB=/path/to/test.db` points Kala at another database, handy while developing.
 

@@ -2,8 +2,10 @@ pub mod export;
 pub mod i18n;
 pub mod parse;
 pub mod reminder;
+pub mod report;
 pub mod round;
 pub mod store;
+pub mod workspace;
 
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};

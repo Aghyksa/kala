@@ -6,7 +6,7 @@ use kala_core::i18n::Lang;
 use kala_core::store::{Entry, EntryPatch, LogOutcome, Planned, ProjectInput, Settings, Store};
 use kala_core::{KalaError, Month, Project};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, Theme};
 
 use crate::{AppState, tray};
 
@@ -28,6 +28,9 @@ fn day(s: &str) -> Res<NaiveDate> {
 fn touching_timer<T>(app: &AppHandle, state: &State<AppState>, f: impl FnOnce(&Store) -> Res<T>) -> Res<T> {
     let out = f(&*store(state)?);
     tray::refresh_title(app);
+    if out.is_ok() {
+        let _ = app.emit("kala://data-changed", ());
+    }
     out
 }
 
@@ -88,13 +91,17 @@ pub fn list_projects(state: State<AppState>, include_archived: bool) -> Res<Vec<
 }
 
 #[tauri::command]
-pub fn save_project(state: State<AppState>, input: ProjectInput) -> Res<Project> {
-    store(&state)?.save_project(&input)
+pub fn save_project(app: AppHandle, state: State<AppState>, input: ProjectInput) -> Res<Project> {
+    let project = store(&state)?.save_project(&input)?;
+    let _ = app.emit("kala://data-changed", ());
+    Ok(project)
 }
 
 #[tauri::command]
-pub fn archive_project(state: State<AppState>, id: i64, archived: bool) -> Res<()> {
-    store(&state)?.set_archived(id, archived)
+pub fn archive_project(app: AppHandle, state: State<AppState>, id: i64, archived: bool) -> Res<()> {
+    store(&state)?.set_archived(id, archived)?;
+    let _ = app.emit("kala://data-changed", ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -104,12 +111,24 @@ pub fn get_settings(state: State<AppState>) -> Res<Settings> {
 
 /// Shortcut and last reminder date belong to the backend; a stale UI copy must not roll them back.
 #[tauri::command]
-pub fn save_settings(state: State<AppState>, mut settings: Settings) -> Res<()> {
+pub fn save_settings(app: AppHandle, state: State<AppState>, mut settings: Settings) -> Res<()> {
     let s = store(&state)?;
     let cur = s.settings()?;
     settings.shortcut = cur.shortcut;
     settings.last_reminder_date = cur.last_reminder_date;
-    s.save_settings(&settings)
+    s.save_settings(&settings)?;
+    apply_theme(&app, &settings.theme);
+    let _ = app.emit("kala://data-changed", ());
+    Ok(())
+}
+
+/// App-wide NSApp appearance: title bars, native controls and the webviews' prefers-color-scheme follow it.
+pub fn apply_theme(app: &AppHandle, theme: &str) {
+    app.set_theme(match theme {
+        "light" => Some(Theme::Light),
+        "dark" => Some(Theme::Dark),
+        _ => None,
+    });
 }
 
 #[tauri::command]
@@ -145,6 +164,24 @@ pub fn open_settings(app: AppHandle) {
     if let Some(w) = app.get_webview_window("settings") {
         let _ = w.center();
         tray::show_focused(&app, &w);
+        let _ = w.emit("kala://refresh", ());
+    }
+}
+
+#[tauri::command]
+pub fn open_workspace(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("popover") {
+        let _ = w.hide();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        let _ = app.show();
+    }
+    if let Some(w) = app.get_webview_window("workspace") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
         let _ = w.emit("kala://refresh", ());
     }
 }

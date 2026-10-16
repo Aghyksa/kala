@@ -8,6 +8,7 @@
 
   let box: HTMLDivElement;
   let quick: QuickInput;
+  let exampleProject = $state("project");
   const hide = () => api.hideWindow("quick");
 
   onMount(() => {
@@ -15,7 +16,9 @@
     const ro = new ResizeObserver(() => win.setSize(new LogicalSize(640, Math.ceil(box.getBoundingClientRect().height) + 20)));
     ro.observe(box);
     const un = listen("kala://refresh", async () => {
-      setLang((await api.getSettings()).language);
+      const [settings, projects] = await Promise.all([api.getSettings(), api.listProjects()]);
+      setLang(settings.language);
+      exampleProject = projects[0]?.aliases[0] || projects[0]?.name.toLowerCase() || "project";
       quick?.focus();
     });
     return () => {
@@ -26,10 +29,12 @@
 </script>
 
 <div class="wrap" bind:this={box}>
-  <QuickInput bind:this={quick} autofocus onDone={hide} onCancel={hide} />
+  <QuickInput bind:this={quick} {exampleProject} autofocus onDone={hide} onCancel={hide} />
 </div>
 
 <style>
-  .wrap { padding: 10px; }
-  .wrap :global(input) { font-size: 18px; padding: 10px 12px; border: 0; background: transparent; box-shadow: none; }
+  .wrap { padding: 12px; background: var(--background); border: 1px solid var(--separator); border-radius: 12px; }
+  .wrap :global(.entry-field input) { height: 48px; font-size: 17px; padding-left: 40px; padding-right: 44px; }
+  .wrap :global(.input-icon) { top: 15px; }
+  .wrap :global(.submit) { top: 9px; }
 </style>

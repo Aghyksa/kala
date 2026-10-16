@@ -26,7 +26,6 @@ pub fn label(lang: Lang, key: &str) -> &'static str {
         (Lang::En, "col_desc") => "Description",
         (Lang::Id, "col_hours") => "Jam",
         (Lang::En, "col_hours") => "Hours",
-        (_, "col_price") => "Price",
         (_, "total") => "Total",
         (_, "timesheet") => "Timesheet",
         (Lang::Id, "reminder_title") => "Kala: cek jam hari ini",

@@ -1,9 +1,63 @@
 import type { KalaError } from "./api";
+import { addDays, monthEnd, monthStart, parse } from "./dates";
 
 export type Lang = "id" | "en";
 
 const dict = {
   id: {
+    "reason.date_range_invalid": "pilih rentang tanggal yang valid antara 1900 dan 9999",
+    "reason.duration_invalid": "durasi harus antara 1 menit dan 24 jam",
+    "reason.entry_running": "hentikan timer sebelum mengedit catatan ini",
+    "reason.entry_too_large": "catatan berisi terlalu banyak teks atau field",
+    "reason.field_archived": "pulihkan field yang diarsipkan sebelum mengubah nilainya",
+    "reason.field_filter_invalid": "pilih field sebelum memfilter nilainya",
+    "reason.field_kind_immutable": "tipe field yang sudah dibuat tidak bisa diubah",
+    "reason.field_name_invalid": "isi nama field maksimal 512 karakter",
+    "reason.field_not_found": "field tidak ditemukan",
+    "reason.field_options_invalid": "pilihan harus unik dan tidak kosong",
+    "reason.field_position_invalid": "urutan field tidak valid",
+    "reason.field_project_immutable": "field yang sudah dibuat tidak bisa dipindah project",
+    "reason.field_project_invalid": "field bukan milik project ini",
+    "reason.field_value_invalid": "pastikan nilai field sesuai tipe dan pilihannya",
+    "reason.pagination_invalid": "pilih 1 sampai 200 baris per halaman",
+    "reason.query_too_large": "teks pencarian atau filter terlalu panjang",
+    "reason.time_precision_invalid": "gunakan jam dan menit tanpa detik",
+    "reason.view_config_invalid": "pengaturan tampilan tersimpan tidak valid",
+    "reason.view_config_too_large": "pengaturan tampilan tersimpan terlalu besar",
+    "reason.view_name_invalid": "isi nama tampilan ini",
+    "reason.view_not_found": "tampilan tersimpan tidak ditemukan",
+    "reason.report_columns_invalid": "pilih kolom laporan yang sesuai project",
+    "reason.report_format_invalid": "pilih Excel atau CSV",
+    "reason.entry_unfinished": "hentikan timer sebelum export catatan ini",
+
+    openWorkspace: "Buka Kala",
+    quickEntry: "Catat waktu",
+    quickHint: "Project, durasi, lalu yang dikerjakan. Enter untuk simpan.",
+    startHint: "Klik untuk mulai timer",
+    timeEntries: "Catatan waktu",
+    editEntry: "Edit catatan",
+    date: "Tanggal",
+    startTime: "Mulai",
+    endTime: "Selesai",
+    description: "Deskripsi",
+    noEntriesHint: "Catat pekerjaan di atas atau mulai timer project.",
+    noProjectsHint: "Tambahkan project di Pengaturan untuk mulai mencatat.",
+    generalHint: "Atur profil dan cara Kala bekerja di Mac kamu.",
+    projectsHint: "Kelola project, tarif, dan pembulatan waktu.",
+    reminderHint: "Tutup hari kerja tanpa lupa mencatat waktu.",
+    integrations: "Integrasi",
+    integrationsHint: "Hubungkan Kala dengan asisten AI kamu.",
+    profileHint: "Nama ini ditampilkan pada judul timesheet export.",
+    shortcutDescription: "Catat waktu dari app mana saja.",
+    launchHint: "Kala siap di menu bar saat Mac dinyalakan.",
+    projectHint: "Perubahan tersimpan otomatis setelah field selesai diedit.",
+    reminderDescription: "Notifikasi di akhir hari kerja untuk melengkapi timesheet.",
+    schedule: "Jadwal kerja",
+    automaticSave: "Perubahan tersimpan otomatis",
+    color: "Warna project",
+    newProject: "Project baru",
+    exportHint: "Timesheet disimpan ke folder Downloads.",
+
     month: "Bulan",
     confirmDelete: "Yakin hapus?",
     discard: "Buang",
@@ -28,8 +82,13 @@ const dict = {
     exported: "{file} · {rows} baris · {hours} jam",
     showInFinder: "Tampilkan di Finder",
     profile: "Profil",
-    yourName: "Nama (untuk judul export)",
+    yourName: "Nama",
     language: "Bahasa",
+    appearance: "Tampilan",
+    appearanceHint: "Mode terang atau gelap untuk semua jendela Kala.",
+    themeSystem: "Ikuti sistem",
+    themeLight: "Terang",
+    themeDark: "Gelap",
     shortcut: "Shortcut ketik cepat",
     shortcutHint: "Klik lalu tekan kombinasi tombol dengan ⌘, ⌥, atau ⌃ (⇧ boleh ditambah).",
     shortcutRecord: "Rekam shortcut",
@@ -37,7 +96,7 @@ const dict = {
     shortcutNone: "Belum diatur",
     shortcutFirstRun: "Atur shortcut dulu supaya bisa nyatat dari app mana saja.",
     projectName: "Nama",
-    aliases: "Alias (pisah koma)",
+    aliases: "Alias",
     rate: "Tarif per jam",
     currency: "Mata uang",
     rounding: "Pembulatan",
@@ -57,7 +116,7 @@ const dict = {
     copied: "Tersalin",
     saved: "Tersimpan",
     days: "Sen,Sel,Rab,Kam,Jum,Sab,Min",
-    placeholder: "acme 2j fix login · globex 13-15 meeting",
+    placeholder: "{project} 2j perbaiki login",
     timer: "Timer",
     stop: "Stop",
     whatDid: "Ngerjain apa?",
@@ -96,6 +155,59 @@ const dict = {
     "err.Io": "Gagal menulis file: {message}",
   },
   en: {
+    "reason.date_range_invalid": "choose a valid date range between 1900 and 9999",
+    "reason.duration_invalid": "duration must be between 1 minute and 24 hours",
+    "reason.entry_running": "stop the timer before editing this entry",
+    "reason.entry_too_large": "the entry contains too much text or too many fields",
+    "reason.field_archived": "restore the archived field before changing its value",
+    "reason.field_filter_invalid": "choose a field before filtering its value",
+    "reason.field_kind_immutable": "an existing field type cannot be changed",
+    "reason.field_name_invalid": "enter a field name up to 512 characters",
+    "reason.field_not_found": "the field no longer exists",
+    "reason.field_options_invalid": "select options must be unique and non-empty",
+    "reason.field_position_invalid": "field order is invalid",
+    "reason.field_project_immutable": "an existing field cannot move to another project",
+    "reason.field_project_invalid": "the field does not belong to this project",
+    "reason.field_value_invalid": "check that each field value matches its type and options",
+    "reason.pagination_invalid": "choose between 1 and 200 rows per page",
+    "reason.query_too_large": "the search or filter text is too long",
+    "reason.time_precision_invalid": "use hours and minutes without seconds",
+    "reason.view_config_invalid": "the saved view configuration is invalid",
+    "reason.view_config_too_large": "the saved view contains too many settings",
+    "reason.view_name_invalid": "enter a name for this view",
+    "reason.view_not_found": "the saved view no longer exists",
+    "reason.report_columns_invalid": "choose valid report columns for the selected project",
+    "reason.report_format_invalid": "choose Excel or CSV",
+    "reason.entry_unfinished": "stop the timer before exporting this entry",
+
+    openWorkspace: "Open Kala",
+    quickEntry: "Quick entry",
+    quickHint: "Project, time, then what you worked on. Enter to save.",
+    startHint: "Click to start a timer",
+    timeEntries: "Time entries",
+    editEntry: "Edit entry",
+    date: "Date",
+    startTime: "Start",
+    endTime: "End",
+    description: "Description",
+    noEntriesHint: "Log your work above or start a project timer.",
+    noProjectsHint: "Add a project in Settings to start tracking.",
+    generalHint: "Your profile and how Kala works on your Mac.",
+    projectsHint: "Manage your projects, rates, and time rounding.",
+    reminderHint: "Wrap up your workday with every hour accounted for.",
+    integrations: "Integrations",
+    integrationsHint: "Connect Kala to your AI assistant.",
+    profileHint: "Your name appears in exported timesheet titles.",
+    shortcutDescription: "Log time without leaving the app you are in.",
+    launchHint: "Keep Kala ready in the menu bar when your Mac starts.",
+    projectHint: "Changes save automatically when you finish editing a field.",
+    reminderDescription: "A nudge at the end of your workday to finish your timesheet.",
+    schedule: "Work schedule",
+    automaticSave: "Changes save automatically",
+    color: "Project color",
+    newProject: "New project",
+    exportHint: "Your timesheet is saved to Downloads.",
+
     month: "Month",
     confirmDelete: "Delete?",
     discard: "Discard",
@@ -120,8 +232,13 @@ const dict = {
     exported: "{file} · {rows} rows · {hours} h",
     showInFinder: "Show in Finder",
     profile: "Profile",
-    yourName: "Name (for export titles)",
+    yourName: "Name",
     language: "Language",
+    appearance: "Appearance",
+    appearanceHint: "Light or dark mode for every Kala window.",
+    themeSystem: "Match system",
+    themeLight: "Light",
+    themeDark: "Dark",
     shortcut: "Quick entry shortcut",
     shortcutHint: "Click, then press a combination with ⌘, ⌥ or ⌃ (⇧ optional).",
     shortcutRecord: "Record shortcut",
@@ -129,7 +246,7 @@ const dict = {
     shortcutNone: "Not set",
     shortcutFirstRun: "Set a shortcut first so you can log time from any app.",
     projectName: "Name",
-    aliases: "Aliases (comma separated)",
+    aliases: "Aliases",
     rate: "Hourly rate",
     currency: "Currency",
     rounding: "Rounding",
@@ -149,7 +266,7 @@ const dict = {
     copied: "Copied",
     saved: "Saved",
     days: "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
-    placeholder: "acme 2h fix login · globex 13-15 meeting",
+    placeholder: "{project} 2h fix login",
     timer: "Timer",
     stop: "Stop",
     whatDid: "What did you work on?",
@@ -223,12 +340,22 @@ export function duration(minutes: number): string {
   return h ? t("hoursOnly", { h }) : t("minutesOnly", { m });
 }
 
+export const formatDate = (iso: string, options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat(i18n.lang === "id" ? "id-ID" : "en-US", options).format(parse(iso));
+
 export function dayLabel(iso: string): string {
-  const [y, mo, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat(i18n.lang === "id" ? "id-ID" : "en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: y === new Date().getFullYear() ? undefined : "numeric",
-  }).format(new Date(y, mo - 1, d));
+  return formatDate(iso, { weekday: "short", day: "numeric", month: "short", year: iso.startsWith(String(new Date().getFullYear())) ? undefined : "numeric" });
+}
+
+export const monthLabel = (iso: string) => formatDate(iso, { month: "long", year: "numeric" });
+export const weekdayNames = () => Array.from({ length: 7 }, (_, i) => formatDate(addDays("2024-01-01", i), { weekday: "short" }));
+
+export function rangeLabel(from: string, to: string): string {
+  const year = from.slice(0, 4);
+  if (from === to) return formatDate(from, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  if (from === monthStart(from) && to === monthEnd(from)) return monthLabel(from);
+  if (from === `${year}-01-01` && to === `${year}-12-31`) return year;
+  const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+  const start = formatDate(from, sameMonth ? { day: "numeric" } : { day: "numeric", month: "short", year: year === to.slice(0, 4) ? undefined : "numeric" });
+  return `${start}${sameMonth ? "–" : " – "}${formatDate(to, { day: "numeric", month: "short", year: "numeric" })}`;
 }

@@ -15,8 +15,8 @@
       {
         "label": "popover",
         "title": "Kala",
-        "width": 360,
-        "height": 540,
+        "width": 400,
+        "height": 600,
         "visible": false,
         "decorations": false,
         "transparent": true,
@@ -54,9 +54,22 @@
       {
         "label": "settings",
         "title": "Kala",
-        "width": 560,
-        "height": 680,
+        "width": 780,
+        "height": 650,
+        "minWidth": 640,
+        "minHeight": 520,
         "visible": false
+      },
+      {
+        "label": "workspace",
+        "title": "Kala",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 840,
+        "minHeight": 600,
+        "center": true,
+        "visible": false,
+        "resizable": true
       }
     ],
     "security": {

@@ -3,6 +3,7 @@
   import Popover from "./windows/Popover.svelte";
   import Quick from "./windows/Quick.svelte";
   import Settings from "./windows/Settings.svelte";
+  import Workspace from "./windows/Workspace.svelte";
 
   const label = getCurrentWebviewWindow().label;
 </script>
@@ -13,4 +14,6 @@
   <Quick />
 {:else if label === "settings"}
   <Settings />
+{:else if label === "workspace"}
+  <Workspace />
 {/if}

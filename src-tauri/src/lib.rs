@@ -1,4 +1,6 @@
 pub mod commands;
+pub mod workspace_commands;
+pub mod report_commands;
 pub mod mcp;
 #[cfg(target_os = "macos")]
 pub mod panel;
@@ -18,18 +20,18 @@ pub struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let store = Store::open(&Store::default_path()).expect("open Kala database");
-    // Must be the first plugin: a second launch exits and the running Kala opens Settings instead.
+    // Must be the first plugin: a second launch exits and the running Kala opens its workspace instead.
     // The callback arrives on an async worker; AppKit windows must only be touched on the main thread.
     let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _, _| {
         let handle = app.clone();
-        let _ = app.run_on_main_thread(move || commands::open_settings(handle));
+        let _ = app.run_on_main_thread(move || commands::open_workspace(handle));
     }));
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_nspanel::init());
     builder
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--background"])))
         .manage(AppState { store: Mutex::new(store) })
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -52,17 +54,30 @@ pub fn run() {
             }
             #[cfg(target_os = "macos")]
             panel::convert(app.handle(), "settings", false);
-            if let Some(w) = app.get_webview_window("settings") {
-                let handle = w.clone();
-                w.on_window_event(move |e| {
-                    if let WindowEvent::CloseRequested { api, .. } = e {
-                        api.prevent_close();
-                        let _ = handle.hide();
-                    }
-                });
+            for label in ["settings", "workspace"] {
+                if let Some(w) = app.get_webview_window(label) {
+                    let handle = w.clone();
+                    let app_handle = app.handle().clone();
+                    w.on_window_event(move |e| {
+                        if let WindowEvent::CloseRequested { api, .. } = e {
+                            api.prevent_close();
+                            let _ = handle.hide();
+                            #[cfg(target_os = "macos")]
+                            if label == "workspace" {
+                                let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                            }
+                        }
+                    });
+                }
+            }
+            if let Some(theme) = app.state::<AppState>().store.lock().ok().and_then(|s| s.settings().ok()).map(|s| s.theme) {
+                commands::apply_theme(app.handle(), &theme);
             }
             tray::create(app.handle())?;
             tick::spawn(app.handle().clone());
+            if !std::env::args().any(|arg| arg == "--background") {
+                commands::open_workspace(app.handle().clone());
+            }
             let shortcut = app.state::<AppState>().store.lock().ok().and_then(|s| s.settings().ok()).and_then(|s| s.shortcut);
             match shortcut {
                 Some(sc) => {
@@ -96,10 +111,23 @@ pub fn run() {
             commands::hide_window,
             commands::open_settings,
             commands::quit_app,
+            commands::open_workspace,
+            workspace_commands::list_fields,
+            workspace_commands::save_field,
+            workspace_commands::workspace_data,
+            workspace_commands::save_workspace_entry,
+            workspace_commands::list_saved_views,
+            workspace_commands::save_saved_view,
+            workspace_commands::delete_saved_view,
+            report_commands::export_report,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_, e| {
+        .run(|app, e| {
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Reopen { .. } = e {
+                commands::open_workspace(app.clone());
+            }
             if let RunEvent::ExitRequested { code: None, api, .. } = e {
                 api.prevent_exit();
             }
