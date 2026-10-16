@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Kala windows",
+  "windows": [
+    "popover",
+    "quick",
+    "settings"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-size",
+    "autostart:default"
+  ]
+}

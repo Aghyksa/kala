@@ -1,0 +1,82 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font-size: 13px;
+  --label: CanvasText;
+  --secondary: GrayText;
+  --tertiary: GrayText;
+  --separator: rgba(128, 128, 128, 0.28);
+  --fill: rgba(128, 128, 128, 0.14);
+  --field: rgba(128, 128, 128, 0.1);
+  --accent: #0a84ff;
+  --red: #ff453a;
+  --orange: #ff9f0a;
+}
+
+@supports (color: -apple-system-label) {
+  :root {
+    --label: -apple-system-label;
+    --secondary: -apple-system-secondary-label;
+    --tertiary: -apple-system-tertiary-label;
+    --separator: -apple-system-separator;
+    --accent: -apple-system-control-accent;
+    --red: -apple-system-red;
+    --orange: -apple-system-orange;
+  }
+}
+
+html, body {
+  margin: 0;
+  background: transparent;
+  color: var(--label);
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+input, select, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  font: inherit;
+  color: var(--label);
+}
+
+input, select {
+  box-sizing: border-box;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--separator);
+  background: var(--field);
+  outline: none;
+}
+
+input:focus, select:focus { border-color: var(--accent); }
+
+.btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 0;
+  background: var(--fill);
+  color: var(--label);
+}
+.btn:active { filter: brightness(0.82); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn.primary { background: var(--accent); color: white; }
+.btn.danger { color: var(--red); }
+.btn.small { font-size: 11px; padding: 2px 8px; }
+
+.link {
+  font: inherit;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

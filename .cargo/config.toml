@@ -1,0 +1,3 @@
+[build]
+# .noindex keeps Spotlight/LaunchServices from listing build outputs as a second Kala.app
+target-dir = "target.noindex"
